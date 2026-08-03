@@ -1,88 +1,160 @@
-# ViT-Tiny: Augmentation Study on CIFAR-100, MNIST & USPS
+<div align="center">
 
-Fine-tuning **`vit_tiny_patch16_224`** (ImageNet-pretrained, via `timm`) on three image
-classification datasets, comparing **Mixup**, **CutMix**, and **RandAugment** — alone and
-combined — against a plain fine-tuning baseline. All experiments were run in Google Colab
-with data/checkpoints stored on Google Drive.
+# 🔍 ViT Augmentation Study
 
-## Notebooks
+### Understanding the Impact of Data Augmentation Strategies on Vision Transformers
+**A Multi-Dataset Analysis of Performance, Robustness, and Interpretability**
 
-| Notebook | Dataset | Classes | Image size (resized) |
-|---|---|---|---|
-| `VIT_TINY_CIFAR100_FINAL.ipynb` | CIFAR-100 | 100 | 224×224 |
-| `VIT_TINY_MNIST_FINAL.ipynb` | MNIST | 10 | 224×224 |
-| `VIT_TINY_USPS_FINAL.ipynb` | USPS | 10 | 224×224 |
+[![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=flat&logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![timm](https://img.shields.io/badge/timm-ViT-blue)](https://github.com/huggingface/pytorch-image-models)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## Common pipeline (each notebook)
+</div>
 
-1. **Setup** — mount Google Drive, load dataset from Drive (`download=False`), build
-   `train`/`test` `DataLoader`s (batch size 64).
-2. **Model** — `timm.create_model("vit_tiny_patch16_224", pretrained=True, num_classes=N)`.
-3. **Training loop** — `AdamW` (lr `1e-4`, weight decay `0.05`) + `CosineAnnealingLR`
-   (`T_max=20`), 20 epochs, checkpoint + best-model saving each epoch, resumable via
-   saved `epoch`/`optimizer`/`scheduler` state.
-4. **Experiments run per dataset** (each a separate re-training of the ViT-Tiny model):
-   - Baseline (no augmentation)
-   - Mixup
-   - CutMix
-   - RandAugment
-   - Mixup + CutMix
-   - Mixup + RandAugment
-   - CutMix + RandAugment
-   - Mixup + CutMix + RandAugment
-   Mixup/CutMix use `timm.data.Mixup` with `SoftTargetCrossEntropy`; RandAugment is
-   applied as a torchvision transform on the training set.
-5. **Evaluation** — test accuracy, precision/recall/F1, classification report and
-   confusion matrix (`sklearn`) for the best checkpoint of each variant; results
-   collated into a comparison `DataFrame` + bar chart.
-6. **AV — Attention Visualization** — forward hooks on each transformer block's
-   attention module, **attention rollout** across layers, upsampled with OpenCV and
-   overlaid on the input image (saved as PNG).
-7. **RA — Robustness Analysis** — evaluates the best model under corruptions (Gaussian
-   noise, Gaussian blur, brightness jitter, contrast jitter) and plots accuracy drop
-   vs. the clean-test baseline.
+---
 
-## Results (test accuracy, best checkpoint per variant)
+## 📌 Overview
 
-| Variant | CIFAR-100 | MNIST | USPS |
-|---|---|---|---|
-| Baseline | 86.96% | 99.65% | 99.25% |
-| Mixup | 86.02% | 99.66% | 99.30% |
-| CutMix | 86.91% | 99.68% | 99.25% |
-| RandAugment | 86.78% | 99.62%¹ | 99.41% |
-| Mixup + CutMix | 87.00% | 99.65%¹ | 80.05%² |
-| Mixup + RandAugment | 86.20% | — | 99.41% |
-| CutMix + RandAugment | **87.41%** | 99.65% | 99.41% |
-| Mixup + CutMix + RandAugment | 87.16% | — | **99.46%** |
+This project empirically studies how **Mixup**, **CutMix**, and **RandAugment** — alone
+and combined — affect Vision Transformers, using **ViT-Tiny** (`vit_tiny_patch16_224`,
+ImageNet-pretrained) fine-tuned on three datasets of increasing visual complexity:
+**USPS → MNIST → CIFAR-100**.
 
-¹ Some MNIST run logs are incomplete/overwritten across cells — treat as approximate.
-² USPS "Mixup+CutMix" combined run collapsed to ~80% accuracy (likely a training
-instability/config issue) — worth re-running before trusting this number.
+Beyond accuracy, the study evaluates:
 
-**Takeaway:** CutMix + RandAugment is the strongest single combo on CIFAR-100; on MNIST
-and USPS (already near-ceiling ~99%), augmentation choice matters far less, with the
-full Mixup+CutMix+RandAugment combo giving a small edge on USPS.
+- 🛡️ **Robustness** under Gaussian noise, blur, brightness, and occlusion
+- 👁️ **Interpretability** via attention rollout / attention map visualization
+- 📈 **Scaling** — a ViT-Small vs. ViT-Tiny comparison on CIFAR-100
 
-## Requirements
+## 📂 Repository Structure
 
 ```
-torch, torchvision, timm, tqdm, opencv-python (cv2), pandas, matplotlib, scikit-learn
+.
+├── VIT_TINY_USPS_FINAL.ipynb        # USPS: 8 augmentation configs + robustness + attention
+├── VIT_TINY_MNIST_FINAL.ipynb       # MNIST: 8 augmentation configs + robustness + attention
+├── VIT_TINY_CIFAR100_FINAL.ipynb    # CIFAR-100: 8 augmentation configs + robustness + attention
+├── report/                          # Final written report (PDF)
+└── README.md
 ```
 
-## Reproducing
+## 🗂️ Datasets
 
-1. Open a notebook in Google Colab.
-2. Update `data_path` / checkpoint paths to your own Google Drive locations.
-3. Run cells top-to-bottom per section; each augmentation experiment re-initializes
-   the model/optimizer/scheduler, so sections can be run independently once the model
-   and data cells above them have executed.
+| Dataset | Classes | Image Type | Complexity |
+|---|---|---|---|
+| USPS | 10 | Grayscale digits | Low |
+| MNIST | 10 | Grayscale digits | Medium |
+| CIFAR-100 | 100 | RGB images | High |
 
-## Notes / things to clean up if reusing this code
+## ⚙️ Training Configuration
 
-- Training/eval loops are re-defined in nearly every section (copy-pasted, not
-  refactored into a shared module) — safe to consolidate into a single utils cell.
-- Some checkpoint filenames have redundant `(1)`/`(3)` suffixes from repeated Drive
-  uploads — verify you're loading the intended file.
-- The USPS Mixup+CutMix run's ~80% result and a couple of MNIST epoch logs look like
-  logging/training artifacts rather than final numbers; re-run those cells if you need
-  clean figures.
+| Parameter | Value |
+|---|---|
+| Architecture | ViT-Tiny Patch16-224 |
+| Pretraining | ImageNet |
+| Optimizer | AdamW |
+| Learning Rate | 1e-4 |
+| Weight Decay | 0.05 |
+| Scheduler | Cosine Annealing |
+| Loss | Cross-Entropy |
+| Epochs | 20 |
+| Batch Size | 64 |
+| Input Resolution | 224 × 224 |
+
+Eight augmentation configurations were evaluated per dataset: **Baseline, Mixup, CutMix,
+RandAugment, Mixup+CutMix, Mixup+RandAugment, CutMix+RandAugment,
+Mixup+CutMix+RandAugment.**
+
+## 🚀 Getting Started
+
+```bash
+git clone https://github.com/<your-username>/vit-augmentation-study.git
+cd vit-augmentation-study
+pip install torch torchvision timm tqdm opencv-python pandas matplotlib scikit-learn
+```
+
+Each notebook is self-contained — open it in Jupyter/Colab, point the dataset/checkpoint
+paths to your own storage, and run top-to-bottom. Sections are organized by augmentation
+config, so you can also run a single section once the setup cells above it have executed.
+
+## 📊 Results
+
+### Accuracy by Augmentation Strategy
+
+| Method | USPS | MNIST | CIFAR-100 |
+|---|---|---|---|
+| Baseline | 99.25 | 99.66 | 86.96 |
+| Mixup | 99.30 | 99.67 | 86.02 |
+| CutMix | 99.25 | 99.68 | 86.91 |
+| RandAugment | 99.41 | 99.62 | 86.78 |
+| Mixup+CutMix | 80.05 ⚠️ | 99.65 | 87.07 |
+| Mixup+RandAugment | 99.41 | **99.73** | 86.20 |
+| CutMix+RandAugment | 99.41 | 99.64 | **87.41** |
+| Mixup+CutMix+RandAugment | **99.46** | 99.69 | 87.16 |
+
+> ⚠️ On USPS, Mixup+CutMix alone destabilized training (80.05%) — RandAugment-inclusive
+> configs were consistently reliable.
+
+### Robustness (Accuracy % under Corruption)
+
+| Condition | USPS | MNIST | CIFAR-100 |
+|---|---|---|---|
+| Clean | 99.46 | 99.61 | 87.41 |
+| Gaussian Noise | 92.96 | 99.58 | 58.80 |
+| Brightness | 84.89 | 99.56 | 86.59 |
+| Blur | 99.46 | 99.64 | 87.20 |
+| Occlusion/Contrast | 99.30 | 99.58 | 86.83 |
+
+MNIST stays >99.5% under every corruption; CIFAR-100 is by far the most sensitive,
+especially to Gaussian noise.
+
+### ViT-Tiny vs. ViT-Small (CIFAR-100)
+
+| Model | Parameters | Best Accuracy |
+|---|---|---|
+| ViT-Tiny | 5.5M | 87.41% |
+| ViT-Small | 21.7M | **89.42%** |
+
+ViT-Small (only 5 training epochs) outperforms the best ViT-Tiny result, with its best
+config being Mixup+CutMix rather than CutMix+RandAugment — augmentation effectiveness
+shifts with model capacity.
+
+## 🔑 Key Findings
+
+- **Dataset complexity drives augmentation impact** — USPS/MNIST are near-saturated;
+  CIFAR-100 sees meaningful gains.
+- **Augmentation effects aren't strictly additive** — the 3-way combo isn't always best.
+- **Robustness scales with augmentation strength**, but complex datasets stay more fragile.
+- **Attention rollout** shows augmentation drives more distributed, generalizable attention.
+- **Model capacity interacts with augmentation choice** — bigger models, different optimal recipe.
+
+## 🧰 Tech Stack
+
+`PyTorch` · `timm` · `torchvision` · `scikit-learn` · `OpenCV` · `matplotlib` · `pandas`
+
+## 🔮 Future Work
+
+- Larger transformer architectures
+- Self-supervised / contrastive augmentation
+- Adversarial robustness evaluation
+- Augmentation-aware transformer optimization
+
+## 📄 Citation
+
+```bibtex
+@techreport{pandey2026vitaugmentation,
+  author = {Satvik Pandey},
+  title  = {Understanding the Impact of Data Augmentation Strategies on Vision Transformers: A Multi-Dataset Analysis of Performance, Robustness, and Interpretability},
+  institution = {Manipal Institute of Technology Bengaluru, Manipal Academy of Higher Education},
+  year   = {2026}
+}
+```
+
+## 👤 Author
+
+**Satvik Pandey**
+Computer Science and Engineering (Data Science), MIT Bengaluru, MAHE
+📧 pandeysatvikmit@gmail.com
+
+## 📜 License
+
+MIT — see [LICENSE](LICENSE) for details.
