@@ -138,22 +138,11 @@ shifts with model capacity.
 - Adversarial robustness evaluation
 - Augmentation-aware transformer optimization
 
-## 📄 Citation
 
-```bibtex
-@techreport{pandey2026vitaugmentation,
-  author = {Satvik Pandey},
-  title  = {Understanding the Impact of Data Augmentation Strategies on Vision Transformers: A Multi-Dataset Analysis of Performance, Robustness, and Interpretability},
-  institution = {Manipal Institute of Technology Bengaluru, Manipal Academy of Higher Education},
-  year   = {2026}
-}
-```
 
 ## 👤 Author
 
 **Satvik Pandey**
-Computer Science and Engineering (Data Science), MIT Bengaluru, MAHE
-📧 pandeysatvikmit@gmail.com
 
 ## 📜 License
 
